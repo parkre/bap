@@ -235,6 +235,7 @@ private:
         dis->step(base + off);
         auto insn = dis->get_insn();
         off = insn.loc.off + insn.loc.len;
+        
         insns.push_back(insn);
         asm_cache.clear();
 
