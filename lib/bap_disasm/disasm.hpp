@@ -97,7 +97,7 @@ struct insn {
 
 struct memory {
     const char *data;
-    int64_t     base;
+    uint64_t     base;
     location    loc;
 };
 
