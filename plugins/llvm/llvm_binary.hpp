@@ -416,11 +416,10 @@ std::vector<symbol> read(const COFFObjectFile& obj) {
 
 template <typename ELFT>
 std::vector<symbol> read(const ELFObjectFile<ELFT>& obj) {
-    //!! identation
     int size1 = distance(obj.begin_symbols(),
-                                obj.end_symbols());
+                         obj.end_symbols());
     int size2 = distance(obj.begin_dynamic_symbols(),
-                                obj.end_dynamic_symbols());
+                         obj.end_dynamic_symbols());
 
     std::vector<symbol> symbols;
     symbols.reserve(size1+size2);
@@ -600,9 +599,7 @@ uint64_t image_entry(const MachOObjectFile& obj) {
 }
 #endif
 
-//!! I suspect, that an address of the entry point should also be
-//!! shifted by the ImageBase. Please, consult the PE32 documentation
-//!! from MSDN
+//!!
 uint64_t image_entry(const COFFObjectFile& obj) {
     if (obj.getBytesInAddress() == 4) {
         const pe32_header* hdr = 0;
@@ -610,9 +607,10 @@ uint64_t image_entry(const COFFObjectFile& obj) {
 	    llvm_binary_fail(ec);
         if (!hdr)
             llvm_binary_fail("PE header not found");
-        return hdr->AddressOfEntryPoint;
+        return hdr->AddressOfEntryPoint + hdr->ImageBase;
     } else {
-        return getPE32PlusEntry(obj);
+        const pe32plus_header *hdr = utils:: getPE32PlusHeader(obj);
+        return hdr->AddressOfEntryPoint + hdr->ImageBase;
     }
 }
 
