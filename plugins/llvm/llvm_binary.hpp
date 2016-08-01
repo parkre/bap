@@ -52,32 +52,6 @@ content_iterator<T>& operator++(content_iterator<T>& a) {
 
 }} //namespace llvm::object
 
-#if LLVM_VERSION_MAJOR == 3 && LLVM_VERSION_MINOR == 4
-namespace utils {
-using namespace llvm;
-using namespace llvm::object;
-
-const pe32plus_header* getPE32PlusHeader(const COFFObjectFile& obj) {
-    uint64_t cur_ptr = 0;
-    const char *buf = (obj.getData()).data();
-    const uint8_t *start = reinterpret_cast<const uint8_t *>(buf);
-    uint8_t b0 = start[0];
-    uint8_t b1 = start[1];
-    if (b0 == 0x4d && b1 == 0x5a) { // check if this is a PE/COFF file
-        // a pointer at offset 0x3C points to the
-        cur_ptr += *reinterpret_cast<const uint16_t *>(start + 0x3c);
-        // check the PE magic bytes.
-        if (std::memcmp(start + cur_ptr, "PE\0\0", 4) != 0)
-            llvm_binary_fail("PE Plus header not found");
-        cur_ptr += 4; // skip the PE magic bytes.
-        cur_ptr += sizeof(coff_file_header);
-        return reinterpret_cast<const pe32plus_header *>(start + cur_ptr);
-    }
-    return NULL;
-}
-
-} //namespace utils
-#endif
 
 namespace {
 
@@ -129,8 +103,27 @@ std::vector<command_info> load_commands(const macho& obj) {
     return cmds;
 }
 
+    const llvm::object::pe32plus_header* getPE32PlusHeader(const llvm::object::COFFObjectFile& obj) {
+    uint64_t cur_ptr = 0;
+    const char *buf = (obj.getData()).data();
+    const uint8_t *start = reinterpret_cast<const uint8_t *>(buf);
+    uint8_t b0 = start[0];
+    uint8_t b1 = start[1];
+    if (b0 == 0x4d && b1 == 0x5a) { // check if this is a PE/COFF file
+        // a pointer at offset 0x3C points to the
+        cur_ptr += *reinterpret_cast<const uint16_t *>(start + 0x3c);
+        // check the PE magic bytes.
+        if (std::memcmp(start + cur_ptr, "PE\0\0", 4) != 0)
+            llvm_binary_fail("PE Plus header not found");
+        cur_ptr += 4; // skip the PE magic bytes.
+        cur_ptr += sizeof(llvm::object::coff_file_header);
+        return reinterpret_cast<const llvm::object::pe32plus_header *>(start + cur_ptr);
+    }
+    return NULL;
+}
+
 uint64_t getPE32PlusEntry(const llvm::object::COFFObjectFile &obj) {
-    const llvm::object::pe32plus_header *hdr = utils::getPE32PlusHeader(obj);;
+    const llvm::object::pe32plus_header *hdr = getPE32PlusHeader(obj);;
     if (!hdr)
         llvm_binary_fail("Failed to extract PE32+ header");
     return hdr->AddressOfEntryPoint;
@@ -275,7 +268,7 @@ std::vector<segment> read(const COFFObjectFile& obj) {
 	    llvm_binary_fail(ec);
 	return readPE<uint32_t>(obj, pe32->ImageBase);
     } else {
-        const pe32plus_header *pe32 = utils::getPE32PlusHeader(obj);
+        const pe32plus_header *pe32 = getPE32PlusHeader(obj);
         return readPE<uint64_t>(obj, pe32->ImageBase);
     }
 }
@@ -316,7 +309,6 @@ std::vector<symbol> read(const ObjectFile& obj) {
     return symbols;
 }
 #else
-// TODO - refactoring this 3.4 code block
 symbol make_symbol(const SymbolRef &sym) {
     StringRef name;
     if(error_code err = sym.getName(name))
@@ -407,7 +399,7 @@ std::vector<symbol> read(const COFFObjectFile& obj) {
 	    llvm_binary_fail(err);
 	return read(obj, pe32->ImageBase);
     } else {
-        const pe32plus_header *pe32plus = utils::getPE32PlusHeader(obj);
+        const pe32plus_header *pe32plus = getPE32PlusHeader(obj);
         if (!pe32plus)
             llvm_binary_fail("Failed to extract PE32+ header");
         return read(obj, pe32plus->ImageBase);
@@ -517,7 +509,7 @@ std::vector<section> read(const COFFObjectFile& obj) {
 	    llvm_binary_fail(err);
 	return readPE(obj, pe32->ImageBase);
     } else {
-	const pe32plus_header *pe32plus = utils::getPE32PlusHeader(obj);
+	const pe32plus_header *pe32plus = getPE32PlusHeader(obj);
 	if (!pe32plus)
 	    llvm_binary_fail("Failed to extract PE32+ header");
 	return readPE(obj, pe32plus->ImageBase);
@@ -609,7 +601,7 @@ uint64_t image_entry(const COFFObjectFile& obj) {
             llvm_binary_fail("PE header not found");
         return hdr->AddressOfEntryPoint + hdr->ImageBase;
     } else {
-        const pe32plus_header *hdr = utils:: getPE32PlusHeader(obj);
+        const pe32plus_header *hdr = getPE32PlusHeader(obj);
         return hdr->AddressOfEntryPoint + hdr->ImageBase;
     }
 }
